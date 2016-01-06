@@ -10,9 +10,10 @@
 
 #import <AVFoundation/AVFoundation.h>
 
-@interface ViewController ()<AVCaptureMetadataOutputObjectsDelegate>
+@interface ViewController ()<AVCaptureMetadataOutputObjectsDelegate, UIAlertViewDelegate>
 
 @property (nonatomic, retain) AVCaptureVideoPreviewLayer *prePlayer;
+@property (nonatomic) BOOL isDecoding;
 
 @end
 
@@ -21,6 +22,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     // Do any additional setup after loading the view, typically from a nib.
+    _isDecoding = NO;
     UIButton *button = [UIButton buttonWithType:UIButtonTypeRoundedRect];
     [button setTitle:@"扫码二维码/条形码" forState:UIControlStateNormal];
     [button setFrame:CGRectMake(100, 270, 140, 50)];
@@ -54,11 +56,11 @@
     //寻找适合的摄像硬件设备
     AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
     if (![UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
-        UIAlertView *alter =  [[UIAlertView alloc] initWithTitle:@"警告"
-                                                         message:@"该设备不支持摄像头，无法进行二维码扫描"
-                                                        delegate:self
-                                               cancelButtonTitle:@"返回"
-                                               otherButtonTitles: nil];
+        UIAlertView *alter =[[UIAlertView alloc]initWithTitle:@"警告"
+                                                      message:@"该设备不支持摄像头，无法进行二维码扫描"
+                                                     delegate:self
+                                            cancelButtonTitle:@"返回"
+                                            otherButtonTitles: nil];
         [alter show];
         return;
     }
@@ -97,13 +99,29 @@
 
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputMetadataObjects:(NSArray *)metadataObjects fromConnection:(AVCaptureConnection *)connection {
-    
+    if (_isDecoding) {
+        return;
+    }
+    _isDecoding = YES;
     for (AVMetadataMachineReadableCodeObject *metadata in metadataObjects) {
-        NSString *type = metadata.type;
-        NSString * string = metadata.stringValue;
-        NSLog(@"type:%@   value:%@", type, string);
+        NSString * string = [NSString stringWithFormat:@"type:%@  value:%@", metadata.type, metadata.stringValue];
+        NSLog(@"%@", string);
+        
+        dispatch_sync(dispatch_get_main_queue(), ^{
+            UIAlertView *alter =[[UIAlertView alloc]initWithTitle:@"扫码结果"
+                                                          message:string
+                                                         delegate:self
+                                                cancelButtonTitle:@"返回"
+                                                otherButtonTitles: nil];
+            [alter show];
+        });
+        
     }
     
+}
+
+- (void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+    _isDecoding = NO;
 }
 
 @end
